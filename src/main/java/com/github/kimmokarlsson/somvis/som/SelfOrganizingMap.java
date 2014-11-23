@@ -1,0 +1,327 @@
+package com.github.kimmokarlsson.somvis.som;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+
+/**
+ * The SOM.
+ */
+public class SelfOrganizingMap
+{
+    private MapCell[][] cell;
+    private List<Variable> variables;
+    
+    private int iterationCount = 1000;
+    private double initialLearningRate = 0.1;
+    private double clusterThreshold = 0.12;
+    
+
+    public SelfOrganizingMap(int c, int r, List<Variable> vars)
+    {
+        variables = vars;
+        int n = vars.size();
+        cell = new MapCell[r][c];
+        
+        for (int j = 0; j < r; j++)
+        {
+            for (int i = 0; i < c; i++)
+            {
+                cell[j][i] = new MapCell(n, i, j);
+            }
+        }
+        for (int j = 0; j < r; j++)
+        {
+            for (int i = 0; i < c; i++)
+            {
+                int diff = (j % 2 == 0) ? -1 : +1;
+                
+                cell[j][i].setNeighbor(0, getCell(i+diff, j-1));
+                cell[j][i].setNeighbor(1, getCell(i, j-1));
+                cell[j][i].setNeighbor(2, getCell(i-1, j));
+                cell[j][i].setNeighbor(3, getCell(i+1, j));
+                cell[j][i].setNeighbor(4, getCell(i+diff, j+1));
+                cell[j][i].setNeighbor(5, getCell(i, j+1));
+            }
+        }
+    }
+
+    public List<Variable> getVariables()
+    {
+        return variables;
+    }
+
+    public double getClusterThreshold()
+    {
+        return clusterThreshold;
+    }
+
+    public void setClusterThreshold(double d)
+    {
+        clusterThreshold = d;
+    }
+
+    public void setIterationCount(int i)
+    {
+        iterationCount = i;
+    }
+
+    public void setInitialLearningRate(double d)
+    {
+        initialLearningRate = d;
+    }
+
+    public MapCell getCell(int i, int j)
+    {
+        if (i >= 0 && i < cell[0].length && j >= 0 && j < cell.length)
+        {
+            return cell[j][i];
+        }
+        return null;
+    }
+
+    /**
+     * 
+     */
+    public void reset()
+    {
+        for (int j = 0; j < cell.length; j++)
+        {
+            for (int i = 0; i < cell[j].length; i++)
+            {
+                cell[j][i].reset();
+            }
+        }
+    }
+
+    public void initCell(int i, int j, double[] v)
+    {
+        cell[j][i].reset();
+        cell[j][i].setValue(new Vector(v));
+    }
+
+    public void initCells()
+    {
+        for (int j = 0; j < cell.length; j++)
+        {
+            for (int i = 0; i < cell[j].length; i++)
+            {
+                cell[j][i].reset();
+                cell[j][i].setValue(getRandomValuesVector());
+            }
+        }
+    }
+
+    private Vector getRandomValuesVector()
+    {
+        Random random = new Random();
+        double[] d = new double[variables.size()];
+        int i = 0;
+        for (Variable v : variables)
+        {
+            d[i++] = v.getRandomValue(random);
+        }
+        return normalize(new Vector(d));
+    }
+
+    public MapCell getNearest(Vector v)
+    {
+        MapCell near = null;
+        double minDist = Integer.MAX_VALUE;
+        for (int j = 0; j < cell.length; j++)
+        {
+            for (int i = 0; i < cell[0].length; i++)
+            {
+                double dist = getDistance( cell[j][i].getValue(), v );
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    near = cell[j][i];
+                }
+            }
+        }
+        return near;
+    }
+
+    private double getDistance(Vector v1, Vector v2)
+    {
+        Vector u1 = new Vector(v1);
+        Vector u2 = new Vector(v2);
+        
+        int i = 0;
+        for (Variable var : variables)
+        {
+            if (var.isIgnored())
+            {
+                u1.get()[i] = 0;
+                u2.get()[i] = 0;
+            }
+            i++;
+        }
+        
+        return u1.dist(u2);
+    }
+
+    public void learn(List<Vector> inputs)
+    {
+        double latticeRadius = Math.max(getRows(), getCols())/2;
+        double timeConstant = iterationCount / Math.log(latticeRadius);
+        double learningRate = initialLearningRate;
+
+        System.out.println();
+        long startTime = System.currentTimeMillis();
+        long iterStartTime = startTime;
+        for (int iter = 0; iter < iterationCount; iter++)
+        {
+            double neighborhoodRadius = latticeRadius * Math.exp(-iter/timeConstant);
+            double nbRadSquared = neighborhoodRadius * neighborhoodRadius;
+            if (iter % 10 == 0 && iter > 0)
+            {
+                long iterEndTime = System.currentTimeMillis();
+                long singleIter = (iterEndTime-iterStartTime)/10;
+                long remTime = ((iterationCount-iter)*(iterEndTime-iterStartTime)/10)/1000;
+                iterStartTime = iterEndTime;
+                System.out.print("Starting iteration: "+iter +", avg iter: "+ singleIter + " ms, time remaining: "+ remTime +" s, rate="+ Double.toString(learningRate).substring(0,4) +", rad="+ Double.toString(neighborhoodRadius).substring(0,4) +"\r");
+            }
+            
+            Collections.shuffle(inputs);
+            for (Vector vec : inputs)
+            {
+                Vector nv = normalize(vec);
+                MapCell bmu = getNearest(nv);
+                if (bmu != null)
+                {
+                    for (int y = 0; y < getRows(); y++)
+                    {
+                        for (int x = 0; x < getCols(); x++)
+                        {
+                            int xd = x-bmu.getX();
+                            int yd = y-bmu.getY();
+                            MapCell c = getCell(x, y);
+                            
+                            double distSq = xd*xd+yd*yd;
+                            if (distSq < nbRadSquared)
+                            {
+                                double distFalloff = Math.exp(-(distSq)/(2 * nbRadSquared));
+                                c.learn(nv, learningRate, distFalloff);
+                            }
+                        }
+                    }
+                }
+            }
+            learningRate = initialLearningRate *
+                    Math.exp(-(double)iter/iterationCount);
+            if (learningRate < 0.01)
+            {
+                System.out.println("\nLearning rate dropped below threshold, stopping at "+ iter);
+                break;
+            }
+        }
+        long endTime = System.currentTimeMillis();
+        for (Vector vec : inputs)
+        {
+            Vector nv = normalize(vec);
+            MapCell bmu = getNearest(nv);
+            if (bmu != null)
+            {
+                bmu.addData(vec);
+            }
+        }
+        System.out.println("\nLearned through "+ iterationCount +" iterations in " + ((endTime-startTime)/1000) + " s.");
+    }
+
+    private Vector normalize(Vector vec)
+    {
+        return normalizeComp(vec).normalize();
+    }
+    
+    private Vector normalizeComp(Vector vec)
+    {
+        double[] inp = vec.get();
+        double[] d = new double[vec.dim()];
+        int i = 0;
+        for (Variable var : variables)
+        {
+            d[i] = var.getNormalizedValue(inp[i]);
+            i++;
+        }
+        return new Vector(d);
+    }
+
+    public int getRows()
+    {
+        return cell.length;
+    }
+
+    public int getCols()
+    {
+        return cell[0].length;
+    }
+
+    public double[][] getUnifiedDistanceMatrix(boolean normalized, boolean cacheResult)
+    {
+        double[][] umat = new double[cell.length][cell[0].length];
+        
+        for (int j = 0; j < cell.length; j++)
+        {
+            for (int i = 0; i < cell[0].length; i++)
+            {
+                umat[j][i] = cell[j][i].calculateMeanUnifiedDistance();
+            }        
+        }
+        
+        if (normalized)
+        {
+            normalize(umat);
+        }
+
+        if (cacheResult) {
+            for (int j = 0; j < cell.length; j++)
+            {
+                for (int i = 0; i < cell[0].length; i++)
+                {
+                    cell[j][i].setMeanUnifiedDistance(umat[j][i]);
+                }
+            }
+        }
+        
+        return umat;
+    }
+
+    private void normalize(double[][] umat)
+    {
+        double maxValue = 0.0;
+        double minValue = Integer.MAX_VALUE;
+        for (int j = 0; j < umat.length; j++)
+        {
+            for (int i = 0; i < umat[0].length; i++)
+            {
+                double v = umat[j][i];
+                maxValue = Math.max(maxValue, v);
+                minValue = Math.min(minValue, v);
+            }
+        }
+        
+        for (int j = 0; j < umat.length; j++)
+        {
+            for (int i = 0; i < umat[0].length; i++)
+            {
+                double v = umat[j][i];
+                double norm = (v - minValue) / (maxValue - minValue);
+                umat[j][i] = norm;
+            }
+        }
+    }
+    
+    public int getMaxCellWeight() {
+        int maxW = 0;
+        for (int j = 0; j < cell.length; j++)
+        {
+            for (int i = 0; i < cell[0].length; i++)
+            {
+                maxW = Math.max(maxW, cell[j][i].getData().size());
+            }
+        }
+        return maxW;
+    }
+}

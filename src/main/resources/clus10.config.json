@@ -1,0 +1,53 @@
+{
+	"cols": 30,
+	"rows": 30,
+	"iterations": 1000,
+	"initLearnRate": 0.7,
+	"vars": [
+		{
+			"name": "v1",
+			"type": "double"
+		},
+		{
+			"name": "v2",
+			"type": "double"
+		},
+		{
+			"name": "v3",
+			"type": "double"
+		},
+		{
+			"name": "v4",
+			"type": "double"
+		},
+		{
+			"name": "v5",
+			"type": "double"
+		},
+		{
+			"name": "v6",
+			"type": "double"
+		},
+		{
+			"name": "v7",
+			"type": "double"
+		},
+		{
+			"name": "v8",
+			"type": "double"
+		},
+		{
+			"name": "v9",
+			"type": "double"
+		},
+		{
+			"name": "v10",
+			"type": "double"
+		},
+		{
+			"name": "vn",
+			"ignored": true,
+			"type": "int"
+		}
+	]
+}
