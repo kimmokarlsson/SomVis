@@ -2,6 +2,9 @@ package com.github.kimmokarlsson.somvis.som;
 
 import java.util.Random;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.github.kimmokarlsson.somvis.util.Json;
+
 /**
  * 
  */
@@ -26,9 +29,9 @@ public class IntVariable extends AbstractVariable
     }
 
     @Override
-    public double getValue(String s)
+    public double getValue(Json json, JsonNode node)
     {
-        return Integer.parseInt(s);
+        return json.getInt(node, name, 0);
     }
 
     @Override

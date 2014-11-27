@@ -122,4 +122,21 @@ public class JsonTest extends Assert
         assertEquals(3, json.getInt(node, "three", 3));
         assertEquals(3.2, json.getDouble(node, "three-two", 3.2), 0.001);
     }
+    
+    @Test
+    public void parseNulls() throws Exception
+    {
+        Json json = new Json();
+        String input1 = "{\"id\":\"i1\",\"name\":null,\"value\":null}";
+        Item item1 = new Item("i1", null, null, 0);
+        Item item2 = json.parse(input1, Item.class);
+        assertEquals(item1, item2);
+        
+        JsonNode node = json.parse(input1);
+        json.fromJson(node, Item.class);
+        assertNotNull(node.get("name"));
+        assertNotNull(node.get("value"));
+        assertEquals("null", node.get("value").asText());
+        assertEquals(0, node.get("value").asInt());
+    }
 }

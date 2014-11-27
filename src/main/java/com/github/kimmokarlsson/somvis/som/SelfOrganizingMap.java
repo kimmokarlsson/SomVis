@@ -1,5 +1,6 @@
 package com.github.kimmokarlsson.somvis.som;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -10,15 +11,25 @@ import java.util.Random;
 public class SelfOrganizingMap
 {
     private MapCell[][] cell;
-    private List<Variable> variables;
+    private final List<Variable> variables;
     
     private int iterationCount = 1000;
     private double initialLearningRate = 0.1;
     private double clusterThreshold = 0.12;
-    
+    private final StringValueRegistry registry;
+    private boolean useRandomSamples;
+    private boolean multiThread;
 
-    public SelfOrganizingMap(int c, int r, List<Variable> vars)
+    /**
+     * 
+     * @param c
+     * @param r
+     * @param vars
+     * @param registry
+     */
+    public SelfOrganizingMap(int c, int r, List<Variable> vars, StringValueRegistry registry)
     {
+        this.registry = registry;
         variables = vars;
         int n = vars.size();
         cell = new MapCell[r][c];
@@ -51,6 +62,26 @@ public class SelfOrganizingMap
         return variables;
     }
 
+    public boolean isMultiThread()
+    {
+        return multiThread;
+    }
+
+    public void setMultiThread(boolean multiThread)
+    {
+        this.multiThread = multiThread;
+    }
+
+    public boolean isUseRandomSamples()
+    {
+        return useRandomSamples;
+    }
+
+    public void setUseRandomSamples(boolean useRandomSamples)
+    {
+        this.useRandomSamples = useRandomSamples;
+    }
+
     public double getClusterThreshold()
     {
         return clusterThreshold;
@@ -69,6 +100,11 @@ public class SelfOrganizingMap
     public void setInitialLearningRate(double d)
     {
         initialLearningRate = d;
+    }
+
+    public StringValueRegistry getRegistry()
+    {
+        return registry;
     }
 
     public MapCell getCell(int i, int j)
@@ -100,21 +136,37 @@ public class SelfOrganizingMap
         cell[j][i].setValue(new Vector(v));
     }
 
-    public void initCells()
+    public void initCells(List<Vector> inputs)
     {
+        Random random = new Random();
         for (int j = 0; j < cell.length; j++)
         {
             for (int i = 0; i < cell[j].length; i++)
             {
                 cell[j][i].reset();
-                cell[j][i].setValue(getRandomValuesVector());
+                cell[j][i].setValue(getRandomValuesVector(random));
+            }
+        }
+        
+        if (useRandomSamples)
+        {
+            randomSample(inputs, random);
+        }
+    }
+    
+    private void randomSample(List<Vector> inputs, Random random)
+    {
+        for (int j = 0; j < cell.length; j+=5)
+        {
+            for (int i = 0; i < cell[j].length; i+=5)
+            {
+                cell[j][i].setValue(inputs.get(random.nextInt(inputs.size())));
             }
         }
     }
 
-    private Vector getRandomValuesVector()
+    private Vector getRandomValuesVector(Random random)
     {
-        Random random = new Random();
         double[] d = new double[variables.size()];
         int i = 0;
         for (Variable v : variables)
@@ -181,7 +233,7 @@ public class SelfOrganizingMap
                 long singleIter = (iterEndTime-iterStartTime)/10;
                 long remTime = ((iterationCount-iter)*(iterEndTime-iterStartTime)/10)/1000;
                 iterStartTime = iterEndTime;
-                System.out.print("Starting iteration: "+iter +", avg iter: "+ singleIter + " ms, time remaining: "+ remTime +" s, rate="+ Double.toString(learningRate).substring(0,4) +", rad="+ Double.toString(neighborhoodRadius).substring(0,4) +"\r");
+                System.out.print("Starting iteration: "+iter +", avg iter: "+ singleIter + " ms, time remaining: "+ remTime +" s, rate="+ toSmallDoubleString(learningRate) +", rad="+ toSmallDoubleString(neighborhoodRadius) +"\r");
             }
             
             Collections.shuffle(inputs);
@@ -230,6 +282,149 @@ public class SelfOrganizingMap
         System.out.println("\nLearned through "+ iterationCount +" iterations in " + ((endTime-startTime)/1000) + " s.");
     }
 
+    /**
+     * Run 4 threads at 1/4 iteration slices.
+     * @param inputs input data
+     */
+    public void concurrentLearn(List<Vector> inputs)
+    {
+        long startTime = System.currentTimeMillis();
+        Thread t1 = new Thread(new LearningRun(new ArrayList<>(inputs), 0, 4));
+        Thread t2 = new Thread(new LearningRun(new ArrayList<>(inputs), 1, 4));
+        Thread t3 = new Thread(new LearningRun(new ArrayList<>(inputs), 2, 4));
+        Thread t4 = new Thread(new LearningRun(new ArrayList<>(inputs), 3, 4));
+        
+        t1.start();
+        t2.start();
+        t3.start();
+        t4.start();
+        
+        try
+        {
+            t1.join();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        try
+        {
+            t2.join();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        try
+        {
+            t3.join();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        try
+        {
+            t4.join();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        
+        long endTime = System.currentTimeMillis();
+        for (Vector vec : inputs)
+        {
+            Vector nv = normalize(vec);
+            MapCell bmu = getNearest(nv);
+            if (bmu != null)
+            {
+                bmu.addData(vec);
+            }
+        }
+        System.out.println("\nLearned through "+ iterationCount +" iterations in " + ((endTime-startTime)/1000) + " s.");
+    }
+
+    private class LearningRun implements Runnable
+    {
+        private final List<Vector> inputs;
+        private final int startIter;
+        private final int step;
+        public LearningRun(List<Vector> inputs, int startIter, int step)
+        {
+            this.inputs = inputs;
+            this.startIter = startIter;
+            this.step = step;
+        }
+        @Override
+        public void run()
+        {
+            parallelLearn(inputs, startIter, step);
+        }
+    }
+
+    private static String toSmallDoubleString(double d)
+    {
+        String s = Double.toString(d);
+        return s.substring(0, Math.min(4, s.length()));
+    }
+
+    private void parallelLearn(List<Vector> inputs, int startIter, int step)
+    {
+        double latticeRadius = Math.max(getRows(), getCols())/2;
+        double timeConstant = iterationCount / Math.log(latticeRadius);
+        double learningRate = initialLearningRate;
+
+        long startTime = System.currentTimeMillis();
+        long iterStartTime = startTime;
+        for (int iter = startIter; iter < iterationCount; iter+=step)
+        {
+            double neighborhoodRadius = latticeRadius * Math.exp(-iter/timeConstant);
+            double nbRadSquared = neighborhoodRadius * neighborhoodRadius;
+            if (iter % 10 == startIter && iter > step)
+            {
+                long iterEndTime = System.currentTimeMillis();
+                long singleIter = (iterEndTime-iterStartTime)/10;
+                long remTime = ((iterationCount-iter)*(iterEndTime-iterStartTime)/10)/1000;
+                iterStartTime = iterEndTime;
+                System.out.println("Starting iteration: "+iter +", avg iter: "+ singleIter + " ms, time remaining: "+ remTime +" s, rate="+ toSmallDoubleString(learningRate) +", rad="+ toSmallDoubleString(neighborhoodRadius));
+            }
+            
+            Collections.shuffle(inputs);
+            for (Vector vec : inputs)
+            {
+                Vector nv = normalize(vec);
+                MapCell bmu = getNearest(nv);
+                if (bmu != null)
+                {
+                    for (int y = 0; y < getRows(); y++)
+                    {
+                        for (int x = 0; x < getCols(); x++)
+                        {
+                            int xd = x-bmu.getX();
+                            int yd = y-bmu.getY();
+                            MapCell c = getCell(x, y);
+                            
+                            double distSq = xd*xd+yd*yd;
+                            if (distSq < nbRadSquared)
+                            {
+                                double distFalloff = Math.exp(-(distSq)/(2 * nbRadSquared));
+                                c.learnSync(nv, learningRate, distFalloff);
+                            }
+                        }
+                    }
+                }
+            }
+            learningRate = initialLearningRate *
+                    Math.exp(-(double)iter/iterationCount);
+            if (learningRate < 0.01)
+            {
+                System.out.println("\nLearning rate of ("+startIter+") dropped below threshold, stopping at "+ iter);
+                break;
+            }
+        }
+    }
+    
     private Vector normalize(Vector vec)
     {
         return normalizeComp(vec).normalize();

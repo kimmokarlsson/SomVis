@@ -106,11 +106,17 @@ public class CellInfoPanel extends GridPanel implements CellSelectionListener, S
     
     private void updateLabels(int index)
     {
-        int i = 0;
-        double[] d = model.getCell().getData().get(index).get();
-        for (JLabel lab : infoValues)
+        SelfOrganizingMap som = somio.getSom();
+        if (som != null)
         {
-            lab.setText(Double.toString(d[i++]));
+            List<Variable> vars = som.getVariables();
+            int i = 0;
+            double[] d = model.getCell().getData().get(index).get();
+            for (JLabel lab : infoValues)
+            {
+                Variable var = vars.get(i);
+                lab.setText(var.getStringValue(d[i++]));
+            }
         }
     }
     

@@ -52,6 +52,17 @@ public class Vector
         return this;
     }
 
+    public Vector dec(Vector t)
+    {
+        assert (val.length == t.val.length);
+        
+        for (int i = 0; i < val.length; i++)
+        {
+            val[i] -= t.val[i];
+        }
+        return this;
+    }
+
     public Vector add(Vector t)
     {
         assert (val.length == t.val.length);

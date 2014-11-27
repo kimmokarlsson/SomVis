@@ -119,6 +119,7 @@ public class SomFileIO
                 case DOUBLE: val = var.getMinValue() + (random.nextDouble() * (var.getMaxValue() - var.getMinValue())); break;
                 case ENUM: 
                 case INT: val = ((int) var.getMinValue()) + random.nextInt((int) (var.getMaxValue() - var.getMinValue())); break;
+                case STRING: val = 0; break;
             }
             
             map.put(var.getName(), val);

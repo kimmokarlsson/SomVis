@@ -3,6 +3,9 @@ package com.github.kimmokarlsson.somvis.som;
 import java.util.List;
 import java.util.Random;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.github.kimmokarlsson.somvis.util.Json;
+
 /**
  * 
  */
@@ -28,8 +31,9 @@ public class EnumVariable extends AbstractVariable
     }
 
     @Override
-    public double getValue(String s)
+    public double getValue(Json json, JsonNode node)
     {
+        String s = json.getString(node, name, "");
         return values.indexOf(s);
     }
 

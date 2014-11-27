@@ -89,6 +89,12 @@ public class MapCell
         value.inc(diff);
     }
 
+    public synchronized void learnSync(Vector v, double learningRate, double distanceFalloff)
+    {
+        Vector diff = v.sub(value).scale(learningRate * distanceFalloff);
+        value.inc(diff);
+    }
+
     public double getValue(Variable var)
     {
         if (var.equals(ClusteringVariable.INSTANCE))

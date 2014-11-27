@@ -2,12 +2,15 @@ package com.github.kimmokarlsson.somvis.som;
 
 import java.util.Random;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.github.kimmokarlsson.somvis.util.Json;
+
 /**
  * 
  */
 public interface Variable
 {
-    public enum Type { INT,DOUBLE,ENUM }
+    public enum Type { INT,DOUBLE,ENUM, STRING }
     
     String getName();
     Type getType();
@@ -26,7 +29,7 @@ public interface Variable
      * @param s
      * @return
      */
-    double getValue(String s);
+    double getValue(Json json, JsonNode node);
     
     /**
      * 

@@ -49,20 +49,23 @@ public class SomJsonParser
         {
             throw new IOException(e);
         }
+        StringValueRegistry registry = new StringValueRegistry();
         List<Variable> variables = new ArrayList<>();
         Dimension dim = null;
         try
         {
-            dim = parseConfigJson(json, variables);
+            dim = parseConfigJson(json, variables, registry);
         }
         catch (Exception e)
         {
             throw new IOException(e);
         }
         
-        SelfOrganizingMap som = new SelfOrganizingMap(dim.width, dim.height, variables);
+        SelfOrganizingMap som = new SelfOrganizingMap(dim.width, dim.height, variables, registry);
         som.setIterationCount(jsonUtil.getInt(json, "iterations", 1000));
         som.setInitialLearningRate(jsonUtil.getDouble(json, "initLearnRate", 0.1));
+        som.setUseRandomSamples(jsonUtil.getBoolean(json, "useRandomSamples", true));
+        som.setMultiThread(jsonUtil.getBoolean(json, "multiThread", true));
         return som;
     }
 
@@ -102,7 +105,7 @@ public class SomJsonParser
                     Variable var = findVariable(name, variables);
                     try
                     {
-                        double v = var.getValue(lineJson.get(name).asText());
+                        double v = var.getValue(jsonUtil, lineJson);
                         var.checkValue(v);
                         int index = variables.indexOf(var);
                         minValues[index] = Math.min(v, minValues[index]);
@@ -181,8 +184,15 @@ public class SomJsonParser
             var.setMinValue(minValues[variables.indexOf(var)]);
         }
         
-        som.initCells();
-        som.learn(trainingData);
+        som.initCells(trainingData);
+        if (som.isMultiThread())
+        {
+            som.concurrentLearn(trainingData);
+        }
+        else
+        {
+            som.learn(trainingData);
+        }
     }
 
     public double[] parseValues(List<Variable> variables, JsonNode lineJson) throws IOException
@@ -194,7 +204,7 @@ public class SomJsonParser
             Variable var = findVariable(name, variables);
             try
             {
-                double v = var.getValue(lineJson.get(name).asText());
+                double v = var.getValue(jsonUtil, lineJson);
                 var.checkValue(v);
                 values[variables.indexOf(var)] = v;
             }
@@ -218,7 +228,7 @@ public class SomJsonParser
         return null;
     }
     
-    private Dimension parseConfigJson(JsonNode json, List<Variable> variables) throws IOException 
+    private Dimension parseConfigJson(JsonNode json, List<Variable> variables, StringValueRegistry registry) throws IOException 
     {
         JsonNode varArr = json.get("vars");
         for (int i = 0; i < varArr.size(); i++)
@@ -244,6 +254,10 @@ public class SomJsonParser
                         list.add(arr.get(k).asText());
                     }
                     variables.add(new EnumVariable(i, name, list, init));
+                    break;
+                case "string":
+                    variables.add(new StringVariable(registry, i, name));
+                    ignored = true;
                     break;
                 default: throw new IOException("Invalid type: "+ type);
             }
@@ -390,6 +404,9 @@ public class SomJsonParser
                         dataNode.put(var.getName(), d[i++]);
                         break;
                     case ENUM:
+                        dataNode.put(var.getName(), var.getStringValue(d[i++]));
+                        break;
+                    case STRING:
                         dataNode.put(var.getName(), var.getStringValue(d[i++]));
                         break;
                     default:

@@ -2,6 +2,9 @@ package com.github.kimmokarlsson.somvis.som;
 
 import java.util.Random;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.github.kimmokarlsson.somvis.util.Json;
+
 public class ClusteringVariable extends AbstractVariable
 {
     public static final ClusteringVariable INSTANCE = new ClusteringVariable();
@@ -35,9 +38,9 @@ public class ClusteringVariable extends AbstractVariable
     }
 
     @Override
-    public double getValue(String s)
+    public double getValue(Json json, JsonNode node)
     {
-        return Double.parseDouble(s);
+        throw new IllegalStateException("Not implemented!");
     }
 
     @Override
