@@ -160,7 +160,7 @@ public class SelfOrganizingMap
         {
             for (int i = 0; i < cell[j].length; i+=5)
             {
-                cell[j][i].setValue(inputs.get(random.nextInt(inputs.size())));
+                cell[j][i].setValue(normalize(inputs.get(random.nextInt(inputs.size()))));
             }
         }
     }
@@ -185,6 +185,25 @@ public class SelfOrganizingMap
             for (int i = 0; i < cell[0].length; i++)
             {
                 double dist = getDistance( cell[j][i].getValue(), v );
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    near = cell[j][i];
+                }
+            }
+        }
+        return near;
+    }
+
+    public MapCell getNearestSync(Vector v)
+    {
+        MapCell near = null;
+        double minDist = Integer.MAX_VALUE;
+        for (int j = 0; j < cell.length; j++)
+        {
+            for (int i = 0; i < cell[0].length; i++)
+            {
+                double dist = getDistance( cell[j][i].getValueSync(), v );
                 if (dist < minDist)
                 {
                     minDist = dist;
@@ -394,7 +413,7 @@ public class SelfOrganizingMap
             for (Vector vec : inputs)
             {
                 Vector nv = normalize(vec);
-                MapCell bmu = getNearest(nv);
+                MapCell bmu = getNearestSync(nv);
                 if (bmu != null)
                 {
                     for (int y = 0; y < getRows(); y++)

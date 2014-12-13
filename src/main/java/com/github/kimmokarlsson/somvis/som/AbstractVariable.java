@@ -70,6 +70,10 @@ public abstract class AbstractVariable implements Variable
         {
             return 0.0;
         }
-        return (val - getMinValue()) / (getMaxValue() - getMinValue());
+        double div = getMaxValue() - getMinValue();
+        if (Math.abs(div) < 0.001) {
+            return 0.0;
+        }
+        return (val - getMinValue()) / div;
     }
 }

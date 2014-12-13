@@ -56,6 +56,11 @@ public class MapCell
     {
         return value;
     }
+
+    public synchronized Vector getValueSync()
+    {
+        return new Vector(value);
+    }
     
     public void setValue(Vector v)
     {

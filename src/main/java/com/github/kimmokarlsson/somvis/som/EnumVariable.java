@@ -33,8 +33,17 @@ public class EnumVariable extends AbstractVariable
     @Override
     public double getValue(Json json, JsonNode node)
     {
-        String s = json.getString(node, name, "");
-        return values.indexOf(s);
+        String s = json.getString(node, name, initValue);
+        if (s == null || s.length() == 0)
+        {
+        	s = initValue;
+        }
+        int index = values.indexOf(s);
+        if (index < 0)
+        {
+        	throw new IllegalStateException("Invalid value for enum \""+name+"\": \""+s+"\"!");
+        }
+        return index;
     }
 
     @Override

@@ -236,14 +236,15 @@ public class SomJsonParser
             JsonNode j = varArr.get(i);
             String type = j.get("type").asText();
             String name = j.get("name").asText();
-            boolean ignored = jsonUtil.getBoolean(j, "ignore", false);
+            boolean ignored = jsonUtil.getBoolean(j, "ignored", false);
+            Variable var = null;
             switch (type)
             {
                 case "double":
-                    variables.add(new DoubleVariable(i, name, jsonUtil.getDouble(j, "minValue", 0.0), jsonUtil.getDouble(j, "maxValue", -1.0), jsonUtil.getDouble(j, "init", 0.0)));
+                    var = new DoubleVariable(i, name, jsonUtil.getDouble(j, "minValue", 0.0), jsonUtil.getDouble(j, "maxValue", -1.0), jsonUtil.getDouble(j, "init", 0.0));
                     break;
                 case "int":
-                    variables.add(new IntVariable(i, name, jsonUtil.getInt(j, "minValue", 0), jsonUtil.getInt(j, "maxValue", -1), jsonUtil.getInt(j, "init", 0)));
+                    var = new IntVariable(i, name, jsonUtil.getInt(j, "minValue", 0), jsonUtil.getInt(j, "maxValue", -1), jsonUtil.getInt(j, "init", 0));
                     break;
                 case "enum":
                     String init = jsonUtil.getString(j, "init", null);
@@ -253,15 +254,16 @@ public class SomJsonParser
                     {
                         list.add(arr.get(k).asText());
                     }
-                    variables.add(new EnumVariable(i, name, list, init));
+                    var = new EnumVariable(i, name, list, init);
                     break;
                 case "string":
-                    variables.add(new StringVariable(registry, i, name));
+                    var = new StringVariable(registry, i, name);
                     ignored = true;
                     break;
                 default: throw new IOException("Invalid type: "+ type);
             }
-            variables.get(variables.size()-1).setIgnored(ignored);
+            var.setIgnored(ignored);
+            variables.add(var);
         }
         
         return new Dimension(json.get("cols").asInt(), json.get("rows").asInt());
