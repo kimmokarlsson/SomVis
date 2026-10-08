@@ -13,7 +13,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.main.class>com.github.kimmokarlsson.somvis.som.SomFileIO</project.main.class>
-    <jackson.version>2.18.8</jackson.version>
+    <jackson.version>2.18.11</jackson.version>
     <jackson-databind.version>2.18.9</jackson-databind.version>
   </properties>
 
